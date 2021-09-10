@@ -1,0 +1,34 @@
+#!/bin/sh
+
+set -e
+
+main () {
+  TW5="$(readlink -f "$(which tiddlywiki)")"
+  if [ -n "$NODE_MEM" ]; then
+    NODE_OPTIONS="--max_old_space_size=$(( ( NODE_MEM * 4 ) / 5 )) \
+                  $NODE_OPTIONS"
+    export NODE_OPTIONS
+  fi
+
+  if [ ! -d "/var/lib/tiddlywiki/$TW_WIKINAME" ]; then
+    /usr/bin/env node "$TW5" "$TW_WIKINAME" --init server
+
+    # move bundled plugins to their destination.
+    # can't just `mv /plugins` because no write permission for /
+    mkdir /var/lib/tiddlywiki/${TW_WIKINAME}/plugins
+    mv /plugins/* /var/lib/tiddlywiki/${TW_WIKINAME}/plugins
+  fi
+
+  # shellcheck disable=SC2086
+  exec /usr/bin/env node $NODE_OPTIONS "$TW5" "$TW_WIKINAME" --server \
+    "$TW_PORT" \
+    "$TW_ROOTTIDDLER" \
+    "$TW_RENDERTYPE" \
+    "$TW_SERVETYPE" \
+    "$TW_USERNAME" \
+    "$TW_PASSWORD" \
+    "$TW_HOST" \
+    "$TW_PATHPREFIX"
+}
+
+main "$@"

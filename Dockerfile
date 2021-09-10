@@ -1,27 +1,30 @@
 # shamelessly stolen from: https://github.com/neechbear/tiddlywiki
 
-#
-# MIT License
-# Copyright (c) 2017-2020 Nicola Worthington <nicolaw@tfb.net>
-#
-# https://nicolaw.uk
-# https://nicolaw.uk/#TiddlyWiki
-#
+ARG NODE_VERSION=16.9.0
+ARG ALPINE_VERSION=3.14
+ARG TW_VERSION=5.1.23
 
-ARG BASE_IMAGE=node:14.9.0-alpine3.12
-FROM ${BASE_IMAGE}
+FROM alpine:${ALPINE_VERSION} AS bundleplugins
 
-ARG BASE_IMAGE=node:14.9.0-alpine3.12
-ARG TW_VERSION=5.1.22
+RUN cd /tmp && \
+    wget https://github.com/felixhayashi/TW5-TiddlyMap/archive/refs/heads/master.zip -O TiddlyMap.zip && \
+    wget https://github.com/felixhayashi/TW5-Vis.js/archive/refs/heads/master.zip -O Vis.js.zip && \
+    wget https://github.com/felixhayashi/TW5-HotZone/archive/refs/heads/master.zip -O HotZone.zip && \
+    wget https://github.com/felixhayashi/TW5-TopStoryView/archive/refs/heads/master.zip -O TopStoryView.zip && \
+    for FILE in *.zip ; do unzip $FILE ; done && \
+    mkdir plugins && \
+    mv TW5-HotZone-master/dist/felixhayashi/hotzone plugins && \
+    mv TW5-TiddlyMap-master/dist/felixhayashi/tiddlymap plugins && \
+    mv TW5-TopStoryView-master/dist/felixhayashi/topstoryview plugins && \
+    mv TW5-Vis.js-master/dist/felixhayashi/vis plugins
 
-LABEL author="Nicola Worthington <nicolaw@tfb.net>" \
-      copyright="Copyright (c) 2017-2020 Nicola Worthington <nicolaw@tfb.net>" \
-      homepage="https://nicolaw.uk/#TiddlyWiki" \
-      vcs="https://github.com/NeechBear/tiddlywiki" \
-      description="TiddlyWiki - a non-linear personal web notebook" \
-      base_image="$BASE_IMAGE" \
-      version="$TW_VERSION-$BASE_IMAGE" \
-      com.tiddlywiki.version="$TW_VERSION" \
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}
+
+LABEL vcs="https://github.com/Semmu/docker-tiddlywikimap" \
+      description="TiddlyWiki bundled with TiddlyMap in a Docker container" \
+      base_image="node:${NODE_VERSION}-alpine${ALPINE_VERSION}" \
+      version="tw:${TW_VERSION}-node:${NODE_VERSION}-alpine:${ALPINE_VERSION}" \
+      com.tiddlywiki.version="${TW_VERSION}" \
       com.tiddlywiki.homepage="https://tiddlywiki.com" \
       com.tiddlywiki.author="Jeremy Ruston" \
       com.tiddlywiki.vcs="https://github.com/Jermolene/TiddlyWiki5"
@@ -36,12 +39,15 @@ RUN apk del libc-utils musl-utils scanelf apk-tools \
 
 RUN mkdir -p /var/lib/tiddlywiki \
  && chown -R node:node /var/lib/tiddlywiki
+
+COPY --from=bundleplugins --chown=1000:1000 /tmp/plugins /plugins
+
 VOLUME /var/lib/tiddlywiki
 WORKDIR /var/lib/tiddlywiki
 
 RUN npm install -g "tiddlywiki@${TW_VERSION}"
 
-ENV TW_WIKINAME="mywiki" \
+ENV TW_WIKINAME="tiddlywikimap" \
     TW_PORT="8080" \
     TW_ROOTTIDDLER="$:/core/save/all" \
     TW_RENDERTYPE="text/plain" \
@@ -56,4 +62,5 @@ EXPOSE 8080/tcp
 ADD init-and-run /usr/local/bin/init-and-run
 
 USER node
+
 CMD ["/bin/sh","/usr/local/bin/init-and-run"]
